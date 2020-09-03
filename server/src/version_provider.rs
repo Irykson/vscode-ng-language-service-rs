@@ -1,7 +1,36 @@
+use std::fs;
+use serde_json::{Value};
+
 struct NodeModule {
     name: String,
     resolved_path: String,
     version: Version,
+}
+
+fn resolve(package_name: &str, location: &str, root_package: Option<&str>) -> Option<NodeModule> {
+    let root_package = match root_package {
+        Some(rp) => rp,
+        None => package_name,
+    };
+
+    match fs::read_to_string(format!("{}/{}/package.json", location, root_package)) {
+        Ok(package) => {
+            let package_json: Value = serde_json::from_str(&package).unwrap();
+            
+            
+            let version = match &package_json["version"] {
+                Value::String(v) => v,
+                _ => return None,
+            };
+
+            Some(NodeModule {
+                name: String::from("test"),
+                version: Version::new(version),
+                resolved_path: String::from("")
+            })
+        }
+        Err(_) => None,
+    }
 }
 
 /// Converts the specified string `a` to non-negative integer.
@@ -23,9 +52,8 @@ pub struct Version {
 
 impl Version {
     pub fn new(version_str: &str) -> Self {
-        
         let version = Version::parse_version_str(version_str);
-        
+
         Self {
             version_str: String::from(version_str),
             major: version.0,
