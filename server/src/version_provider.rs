@@ -1,7 +1,12 @@
-use std::fs;
-use serde_json::{Value};
+use node_resolve;
+use serde_json::Value;
+use std::{fs, path::PathBuf};
 
-struct NodeModule {
+
+static MIN_TS_VERSION: &str = "3.9";
+static MIN_NG_VERSION: &str = "10.0";
+
+pub struct NodeModule {
     name: String,
     resolved_path: String,
     version: Version,
@@ -13,24 +18,70 @@ fn resolve(package_name: &str, location: &str, root_package: Option<&str>) -> Op
         None => package_name,
     };
 
-    match fs::read_to_string(format!("{}/{}/package.json", location, root_package)) {
-        Ok(package) => {
-            let package_json: Value = serde_json::from_str(&package).unwrap();
-            
-            
-            let version = match &package_json["version"] {
-                Value::String(v) => v,
-                _ => return None,
-            };
+    // TODO:
+    // - Pruefen, ob das ohne die viele match geht
+    // - Pruefen, ob resolve_from sematisch gleich so require.resolve(package, {paths: [location]}) ist
+    let package_json_path = match node_resolve::resolve_from(
+        &format!("{}/package.json", root_package),
+        PathBuf::from(location),
+    ) {
+        Ok(path) => String::from(path.to_str().unwrap()),
+        Err(_) => return None,
+    };
 
-            Some(NodeModule {
-                name: String::from("test"),
-                version: Version::new(version),
-                resolved_path: String::from("")
-            })
-        }
-        Err(_) => None,
+    let package_json: Value = match fs::read_to_string(package_json_path) {
+        Ok(package) => serde_json::from_str(&package).unwrap(),
+        Err(_) => return None,
+    };
+
+    let resolved_path = match node_resolve::resolve_from(package_name, PathBuf::from(location)) {
+        Ok(rpath) => String::from(rpath.to_str().unwrap()),
+        Err(_) => return None,
+    };
+
+    Some(NodeModule {
+        name: String::from(package_name),
+        resolved_path: String::from(resolved_path),
+        version: Version::new(package_json["version"].as_str().unwrap()),
+    })
+}
+
+fn resolve_with_min_version(
+    package_name: &str,
+    min_version_str: &str,
+    probe_locations: Vec<&str>,
+    root_package: &str,
+) -> NodeModule {
+    if !package_name.starts_with(root_package) {
+        panic!(format!("{} must be in the root package", package_name));
     }
+
+    let min_version = Version::new(min_version_str);
+    for location in probe_locations.iter() {
+        let node_module = resolve(package_name, location, Some(root_package));
+
+        match node_module {
+            Some(nm) => {
+                if nm.version.greater_than_or_equal(&min_version) {
+                    return nm;
+                }
+            }
+            None => continue,
+        }
+    }
+
+    panic!(format!(
+        "Failed to resolve '{}' with minimum version '{}' from {}",
+        package_name,
+        min_version.to_string(),
+        "TODO: print string array" /*probe_locations*/
+    ));
+}
+
+pub fn resolve_ts_server(probe_locations: Vec<&str>) -> NodeModule {
+    let tsserver = "typescript/lib/tsserverlibrary";
+
+    resolve_with_min_version(tsserver, MIN_TS_VERSION, probe_locations, "typescript")
 }
 
 /// Converts the specified string `a` to non-negative integer.

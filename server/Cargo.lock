@@ -7,6 +7,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
 
 [[package]]
+name = "node-builtins"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "237ad7a9faa3cd869e4bb27d19c2c8a3127d66401cdc4c724640cac9be340761"
+
+[[package]]
+name = "node-resolve"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6a90e3b24b73097866f78daad37dba3bc693222b3b59fbdc4dd5adb3c8e2399"
+dependencies = [
+ "node-builtins",
+ "serde_json",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -33,5 +49,6 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "node-resolve",
  "serde_json",
 ]
